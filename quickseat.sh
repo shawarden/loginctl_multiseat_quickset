@@ -244,7 +244,7 @@ do
 		# Human readable list
 		usbList2=($(for dev in ${usbList[@]}
 		do
-			echo ${dev} | sed -E 's/^Bus 0*//g; s/Device [0-9]{3}\: ID [a-z0-9]{4}\:[a-z0-9]{4} //g'
+			echo ${dev} | sed -E 's/^Bus 0*//g; s/ Device 0*/-/g; s/: ID [a-z0-9]{4}\:[a-z0-9]{4}//g'
 		done) "refresh" "done")
 
 		# Pick from remaining cards.
@@ -280,7 +280,7 @@ do
 		if [ "${usbList2[$hub]}" == "refresh" ]
 		then
 			# Rebuild list, if you wanna screw with what's plugged in where.
-			IFS=$'\n' usbList=($(lsusb | grep -v "Linux Foundation"))
+			IFS=$'\n' usbList=($(lsusb | grep -v "Linux Foundation" | sort -k 2,4))
 		else
 			targetHUB="${usbList[$hub]}"
 
