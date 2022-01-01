@@ -32,6 +32,10 @@ function promptReboot() {
 #   Arguments   : list of options, maximum of 256
 #				 "opt1" "opt2" ...
 #   Return value: selected index (0 for opt1, 1 for opt2 ...)
+# By
+# https://unix.stackexchange.com/users/219724/alexander-klimetschek
+# at
+# https://unix.stackexchange.com/a/415155/140671
 function select_option {
 
 	# little helpers for terminal print control and key input
