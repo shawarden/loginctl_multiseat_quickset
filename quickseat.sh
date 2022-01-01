@@ -32,10 +32,9 @@ function promptReboot() {
 #   Arguments   : list of options, maximum of 256
 #				 "opt1" "opt2" ...
 #   Return value: selected index (0 for opt1, 1 for opt2 ...)
-# By
-# https://unix.stackexchange.com/users/219724/alexander-klimetschek
-# at
-# https://unix.stackexchange.com/a/415155/140671
+#
+# Sources from https://unix.stackexchange.com/a/415155/140671
+# By https://unix.stackexchange.com/users/219724/alexander-klimetschek
 function select_option {
 
 	# little helpers for terminal print control and key input
@@ -110,7 +109,7 @@ then
 
 	# reset all to seat0 & reboot?
 	echo "Command to clear all seats:"
-	echo "sudo loginctl flush-devices"
+	echo "sudo loginctl flush-devices && sudo reboot now"
 	exit
 fi
 
@@ -143,7 +142,8 @@ then
 	--min-value 1 \
 	--max-value ${#gpuList[@]} \
 	--width 350 \
-	--height 350)
+	--height 350 \
+	2>/dev/null)
 	if [[ $? -eq 1 ]] || [[ -z seats ]]; then exit; fi
 	errlog "Seats selected ${seats}"
 else
@@ -169,7 +169,6 @@ for i in $(seq 1 $((${seats} -1)))
 do
 	# List available GPUS
 	availableCards=""
-	echo "- - - SEAT${i} - - -"
 
 	unset gui
 	# Pick from remaining cards.
@@ -189,11 +188,13 @@ do
 		--column "lspci | grep \"VGA compatible controller\"" \
 		--hide-column 1 \
 		--width 1024 \
-		--height 320)
+		--height 320 \
+		2>/dev/null)
 		if [[ $? -eq 1 ]] || [[ -z gpu ]]; then exit; fi
 		errlog "GPU selected: ${gpu}"
 	else
 		# Text!
+		echo "- - - SEAT${i} - - -"
 		echo "Select GPU for seat${i}:"
 		select_option "${gpuList[@]}"
 		gpu=$?
@@ -234,7 +235,7 @@ do
 	while :;
 	do
 		unset gui
-		usbList2=(${usbList[@]} "done")
+		usbList2=(${usbList[@]} "refresh" "done")
 		# Pick from remaining cards.
 		if [[ ! -z $DISPLAY ]] && command -v zenity &>/dev/null
 		then
@@ -252,7 +253,8 @@ do
 			--column "lsusb | grep -v \"Linux Foundation\"" \
 			--hide-column 1 \
 			--width 1024 \
-			--height 320)
+			--height 320 \
+			2>/dev/null)
 			if [[ $? -eq 1 ]] || [[ -z hub ]]; then exit; fi
 			errlog "USB Hub selected: ${hub}"
 		else
@@ -265,39 +267,47 @@ do
 
 		[ "${usbList2[$hub]}" == "done" ] && break
 
-		targetHUB="${usbList[$hub]}"
+		if [ "${usbList2[$hub]}" == "refresh" ]
+		then
+			# Rebuild list, if you wanna screw with what's plugged in where.
+			IFS=$'\n' usbList=($(lsusb | grep -v "Linux Foundation"))
+		else
+			targetHUB="${usbList[$hub]}"
 
-		errlog "Requested HUB: ${targetHUB}"
+			errlog "Requested HUB: ${targetHUB}"
 
-		stripHUB="$(echo ${targetHUB} | awk '{print $2}')"
-		errlog "Remove ${stripHUB}"
+			stripHUB="$(echo ${targetHUB} | awk '{print $2}')"
+			errlog "Remove ${stripHUB}"
 
-		unset newHUBList
-		unset hubID
+			unset newHUBList
+			unset hubID
 
-		# Remove selection from available list.
-		for j in "${!usbList[@]}"; do
-			if [[ ${usbList[j]} == *"Bus ${stripHUB}"* ]]
-			then
-				hubID=$(echo ${stripHUB} | sed 's/^0*//g')
-
-				dev=`loginctl seat-status seat0 | grep "/usb${hubID}\$" | awk -F'├─' '{print $2}'`
-
-				# This item is not yet in the attach list.
-				if [[ ! ${seatDeviceList[${i}]} =~ "${dev}" ]]
+			# Remove selection from available list.
+			for j in "${!usbList[@]}"; do
+				if [[ ${usbList[j]} == *"Bus ${stripHUB}"* ]]
 				then
-					seatDeviceList[${i}]+="${dev} "
+					hubID=$(echo ${stripHUB} | sed 's/^0*//g')
+
+					dev=`loginctl seat-status seat0 | grep "/usb${hubID}\$" | awk -F'├─' '{print $2}'`
+
+					# This item is not yet in the attach list.
+					if [[ ! ${seatDeviceList[${i}]} =~ "${dev}" ]]
+					then
+						seatDeviceList[${i}]+="${dev} "
+					fi
+				else
+					newHUBList=(${newHUBList[@]} "${usbList[j]}")
+					errlog "Remaining Devices: ${usbList[j]}"
 				fi
-			else
-				newHUBList=(${newHUBList[@]} "${usbList[j]}")
-				errlog "Remaining Devices: ${usbList[j]}"
-			fi
-		done
-		# Update USB Hub list indexes
-		usbList=(${newHUBList[@]})
+			done
+			# Update USB Hub list indexes
+			usbList=(${newHUBList[@]})
+		fi
 	done
 done
 
+# LoginCTL is wonky?
+# Randomly does nothing despite command not throwing an error?
 #seatDeviceList=( $(shuf -e "${seatDeviceList[@]}") )
 
 for key in ${!seatDeviceList[@]}
@@ -308,8 +318,10 @@ do
 	done
 done
 
+# Save myself the hassle!
 echo "Commands to configure additional seats:"
 for key in ${!seatDeviceList[@]}
 do
-	echo "sudo loginctl attach seat${key} ${seatDeviceList[$key]}"
+	echo -n "sudo loginctl attach seat${key} ${seatDeviceList[$key]}&& "
 done
+echo "sudo reboot now"
