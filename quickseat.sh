@@ -33,7 +33,7 @@ function promptReboot() {
 #				 "opt1" "opt2" ...
 #   Return value: selected index (0 for opt1, 1 for opt2 ...)
 #
-# Sources from https://unix.stackexchange.com/a/415155/140671
+# Sourced from https://unix.stackexchange.com/a/415155/140671
 # By https://unix.stackexchange.com/users/219724/alexander-klimetschek
 function select_option {
 
@@ -144,8 +144,7 @@ then
 	--width 350 \
 	--height 350 \
 	2>/dev/null)
-	if [[ $? -eq 1 ]] || [[ -z seats ]]; then exit; fi
-	errlog "Seats selected ${seats}"
+	if [[ $? -ne 0 ]] || [[ -z seats ]]; then exit; fi
 else
 	# Text!
 	seatList=($(seq 1 ${#gpuList[@]}))
@@ -190,8 +189,7 @@ do
 		--width 1024 \
 		--height 320 \
 		2>/dev/null)
-		if [[ $? -eq 1 ]] || [[ -z gpu ]]; then exit; fi
-		errlog "GPU selected: ${gpu}"
+		if [[ $? -ne 0 ]] || [[ -z gpu ]]; then exit; fi
 	else
 		# Text!
 		echo "- - - SEAT${i} - - -"
@@ -255,8 +253,7 @@ do
 			--width 1024 \
 			--height 320 \
 			2>/dev/null)
-			if [[ $? -eq 1 ]] || [[ -z hub ]]; then exit; fi
-			errlog "USB Hub selected: ${hub}"
+			if [[ $? -ne 0 ]] || [[ -z hub ]]; then exit; fi
 		else
 			# Text!
 			echo "Select USB hub (via Device) for seat${i}:"
