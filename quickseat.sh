@@ -109,7 +109,8 @@ then
 
 	# reset all to seat0 & reboot?
 	echo "Command to clear all seats:"
-	echo "sudo loginctl flush-devices && sudo reboot now"
+	echo "sudo loginctl flush-devices"
+	echo "Then reboot to apply. Restarting Xorg might work too."
 	exit
 fi
 
@@ -321,4 +322,4 @@ for key in ${!seatDeviceList[@]}
 do
 	echo -n "sudo loginctl attach seat${key} ${seatDeviceList[$key]}&& "
 done
-echo "sudo reboot now"
+echo -e "\nReboot to apply."
