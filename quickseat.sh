@@ -121,7 +121,7 @@ fi
 
 # List GPUs and USB device
 IFS=$'\n' gpuList=($(lspci | grep "VGA compatible controller"))
-IFS=$'\n' usbList=($(lsusb | grep -v "Linux Foundation"))
+IFS=$'\n' usbList=($(lsusb | grep -v "Linux Foundation" | sort -k 2,4))
 
 if [[ ${#gpuList[@]} -eq 1 ]]
 then
@@ -171,15 +171,21 @@ do
 	availableCards=""
 
 	unset gui
+
+	gpuList2=($(for dev in ${gpuList[@]}
+	do
+		echo ${dev} | sed 's/VGA compatible controller: //g; s/Advanced Micro Devices, Inc\. \[AMD\/ATI\] //g; s/NVIDIA Corporation //g'
+	done))
+
 	# Pick from remaining cards.
 	if [[ ! -z $DISPLAY ]] && command -v zenity &>/dev/null
 	then
 		# GUI!
 		gpu=$(
-		for key in ${!gpuList[@]}
+		for key in ${!gpuList2[@]}
 		do
 			echo $key
-			echo ${gpuList[$key]}
+			echo ${gpuList2[$key]}
 		done | zenity \
 		--title "SEAT${i}" \
 		--text "Which GPU for seat${i}?" \
@@ -187,15 +193,15 @@ do
 		--column "#" \
 		--column "lspci | grep \"VGA compatible controller\"" \
 		--hide-column 1 \
-		--width 1024 \
-		--height 320 \
+		--width 600 \
+		--height 200 \
 		2>/dev/null)
 		if [[ $? -ne 0 ]] || [[ -z gpu ]]; then exit; fi
 	else
 		# Text!
 		echo "- - - SEAT${i} - - -"
 		echo "Select GPU for seat${i}:"
-		select_option "${gpuList[@]}"
+		select_option "${gpuList2[@]}"
 		gpu=$?
 	fi
 
@@ -234,7 +240,13 @@ do
 	while :;
 	do
 		unset gui
-		usbList2=(${usbList[@]} "refresh" "done")
+
+		# Human readable list
+		usbList2=($(for dev in ${usbList[@]}
+		do
+			echo ${dev} | sed -E 's/^Bus 0*//g; s/Device [0-9]{3}\: ID [a-z0-9]{4}\:[a-z0-9]{4} //g'
+		done) "refresh" "done")
+
 		# Pick from remaining cards.
 		if [[ ! -z $DISPLAY ]] && command -v zenity &>/dev/null
 		then
@@ -251,7 +263,7 @@ do
 			--column "#" \
 			--column "lsusb | grep -v \"Linux Foundation\"" \
 			--hide-column 1 \
-			--width 1024 \
+			--width 600 \
 			--height 320 \
 			2>/dev/null)
 			if [[ $? -ne 0 ]] || [[ -z hub ]]; then exit; fi
@@ -317,9 +329,8 @@ do
 done
 
 # Save myself the hassle!
-echo "Commands to configure additional seats:"
+echo "Run commands to configure additional seats then reboot to apply:"
 for key in ${!seatDeviceList[@]}
 do
 	echo -n "sudo loginctl attach seat${key} ${seatDeviceList[$key]}&& "
-done
-echo -e "\nReboot to apply."
+done | sed 's/ \&\& $/\n/g'
